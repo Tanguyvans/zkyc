@@ -13,6 +13,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY main.py .
 
+# Add labels for GitHub Container Registry
+LABEL org.opencontainers.image.source=https://github.com/tanguyvans/zkyc
+LABEL org.opencontainers.image.description="FastAPI Hello World Application"
+LABEL org.opencontainers.image.licenses=MIT
+
 # Expose port 8000
 EXPOSE 8000
 
