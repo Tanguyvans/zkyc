@@ -36,8 +36,8 @@ export default function Index() {
             elevation: 5,
           }}
           onPress={() => {
-            router.push('/(auth)/login');
-            // router.push('/(onboarding)/kyc-id');
+            // Skip the login screen and go directly to KYC
+            router.push('/(onboarding)/kyc');
           }}
         >
           <Text style={{ color: 'white', fontSize: 24 }}>→</Text>

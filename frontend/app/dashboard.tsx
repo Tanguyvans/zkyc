@@ -20,12 +20,13 @@ const Dashboard = () => {
   })
 
   const [verificationDetails] = useState({
-    walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    issueDate: '2024-01-15',
+    issueDate: verificationResult?.timestamp ? new Date(verificationResult.timestamp).toLocaleDateString() : '2024-01-15',
     expiryDate: '2025-01-15',
     verificationLevel: 'Level 2',
-    zkProofHash: '0x9876543210fedcba9876543210fedcba98765432',
-    proofVerified: true,
+    zkProofHash: verificationResult?.verification_id || '0x9876543210fedcba',
+    proofVerified: verificationResult?.face_verified || false,
+    confidence: verificationResult?.face_confidence || 0,
+    extractedInfo: verificationResult?.extracted_info || 'No data extracted',
     documents: [
       { name: 'Government ID', status: 'verified', date: '2024-01-10' },
       { name: 'Selfie Verification', status: 'verified', date: '2024-01-12' },
@@ -88,16 +89,6 @@ const Dashboard = () => {
       case 'pending': return 'time'
       case 'rejected': return 'close-circle'
       default: return 'help-circle'
-    }
-  }
-
-  const copyWalletAddress = async () => {
-    try {
-      await Clipboard.setStringAsync(verificationDetails.walletAddress)
-      setCopyFeedback(true)
-      setTimeout(() => setCopyFeedback(false), 2000) // Reset after 2 seconds
-    } catch (error) {
-      console.error('Failed to copy wallet address:', error)
     }
   }
 
@@ -349,7 +340,7 @@ const Dashboard = () => {
               <View style={styles.walletCard}>
                 <Ionicons name="wallet" size={20} color="#2196F3" />
                 <Text style={styles.walletAddress}>{verificationDetails.walletAddress}</Text>
-                <TouchableOpacity style={styles.copyButton} onPress={copyWalletAddress}>
+                <TouchableOpacity style={styles.copyButton} onPress={() => {}}>
                   <Ionicons 
                     name={copyFeedback ? "checkmark" : "copy"} 
                     size={16} 
