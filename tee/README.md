@@ -37,3 +37,11 @@ docker push ghcr.io/tanguyvans/zkyc:0.2
 docker tag fastapi-hello ghcr.io/tanguyvans/zkyc:latest
 docker push ghcr.io/tanguyvans/zkyc:latest
 ```
+
+```bash
+curl -X POST "http://localhost:8000/face-recognition" \
+  -F "img1=@img/1.jpg" \
+  -F "img2=@img/2.jpg"
+```
+
+# Face extraction using DeepFace
