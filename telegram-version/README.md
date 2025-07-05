@@ -1,333 +1,160 @@
-# ZKYC Telegram Bot - AI-Powered KYC via Telegram
+# ZKYC Telegram Bot - Docker Setup
 
-AI-powered KYC verification through a Telegram bot using Qwen2.5 Vision Language Model and DeepFace for intelligent document understanding and face recognition.
+This is a containerized version of the ZKYC Telegram Bot that provides AI-powered KYC verification using Qwen 2.5 Vision Language Model.
 
-## 🤖 Features
+## Features
 
-- **📱 Mobile-First**: Easy KYC verification directly through Telegram
-- **🔍 AI Text Extraction**: Extract text from ID documents using Qwen 2.5 VLM
-- **👤 Face Recognition**: Compare faces between ID and selfie photos
-- **🏛️ Complete KYC**: Full identity verification with detailed reports
-- **🌐 Multi-Language**: Works with documents in multiple languages
-- **⚡ Real-time**: Instant processing and responses via Telegram
+- 🔍 **Text Extraction** - Extract text from ID documents using AI
+- 👤 **Face Recognition** - Compare faces between two photos
+- 🏛️ **KYC Verification** - Complete identity verification process
+- 🧠 **Powered by Qwen 2.5 Vision Model** for intelligent document understanding
 
-## 🚀 Bot Commands & Features
+## Prerequisites
 
-### Main Features:
+- Docker and Docker Compose installed
+- Telegram Bot Token from [@BotFather](https://t.me/BotFather)
 
-- **🔍 Extract Text from ID** - Upload any document for AI text extraction
-- **👤 Face Recognition** - Compare two photos for face verification
-- **🏛️ Full KYC Verification** - Complete identity verification process
+## Setup Instructions
 
-### Bot Commands:
+### 1. Get Telegram Bot Token
 
-- `/start` - Show main menu with options
-- `/help` - Display help and instructions
-- `/cancel` - Cancel current operation
+1. Start a chat with [@BotFather](https://t.me/BotFather) on Telegram
+2. Send `/newbot` command
+3. Follow the instructions to create your bot
+4. Copy the bot token (format: `123456789:AAGax-vgGmQsRiwf4WIQI4xq8MMf4WaQI5x`)
 
-## 📱 How to Use
+### 2. Environment Setup
 
-1. **Start the bot** - Send `/start` to begin
-2. **Choose operation** - Select from the interactive menu
-3. **Upload photos** - Send clear, well-lit images
-4. **Get results** - Receive detailed AI-powered analysis
-
-### Example Workflows:
-
-#### 🔍 Document Text Extraction:
-
-1. Tap "🔍 Extract Text from ID"
-2. Upload your ID document photo
-3. Get structured text extraction results
-
-#### 👤 Face Recognition:
-
-1. Tap "👤 Face Recognition"
-2. Upload first photo (e.g., ID card)
-3. Upload second photo (e.g., selfie)
-4. Get face match verification results
-
-#### 🏛️ Full KYC Verification:
-
-1. Tap "🏛️ Full KYC Verification"
-2. Upload ID card photo
-3. Upload selfie photo
-4. Get complete verification report
-
-## 🛠️ Setup Instructions
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Telegram Bot Token (from @BotFather)
-- 8GB RAM (recommended)
-- 5GB disk space (for AI model)
-
-### Step 1: Create Telegram Bot
-
-1. **Message @BotFather** on Telegram
-2. **Send** `/newbot`
-3. **Choose bot name** (e.g., "My KYC Bot")
-4. **Choose username** (e.g., "mykyc_bot")
-5. **Copy the token** (looks like: `123456789:ABCdefGhIjKlMnOpQrStUvWxYz`)
-
-### Step 2: Configure Environment
+Create a `.env` file in the `telegram-version` directory:
 
 ```bash
-# Copy the environment template
-cp env.example .env
+# Copy the example and edit
+cp .env.example .env
 
-# Edit .env file with your bot token
-TELEGRAM_BOT_TOKEN=your_actual_bot_token_here
+# Edit with your bot token
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 ```
 
-### Step 3: Start the Services
+### 3. Start the Services
 
 ```bash
-# Build and start services
-docker-compose up --build -d
+# Build and start all services
+docker-compose up -d
 
-# Wait for model download (first time: ~5 minutes)
+# Check if services are running
+docker-compose ps
+
+# View logs
+docker-compose logs -f telegram-bot
 docker-compose logs -f ollama
-
-# Check bot status
-docker-compose logs telegram-bot
 ```
 
-### Step 4: Test Your Bot
+### 4. Install Qwen Model
 
-1. **Find your bot** on Telegram (search for the username)
-2. **Send** `/start`
-3. **Try text extraction** with a sample document
+The first time you run the setup, you need to install the Qwen 2.5 Vision model:
 
-## 🔧 Configuration
+```bash
+# Install the model in Ollama
+docker-compose exec ollama ollama pull qwen2.5vl:3b
 
-### Environment Variables
-
-| Variable             | Description                             | Default               |
-| -------------------- | --------------------------------------- | --------------------- |
-| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token from @BotFather | Required              |
-| `OLLAMA_BASE_URL`    | Ollama service URL                      | `http://ollama:11434` |
-
-### Model Configuration
-
-- **Current Model**: `qwen2.5vl:3b` (high accuracy)
-- **Alternative**: `qwen2.5vl:1.5b` (faster, smaller)
-
-To change model, update `docker-compose.yml`:
-
-```yaml
-entrypoint:
-  - /bin/bash
-  - -c
-  - "/bin/ollama serve & sleep 5; ollama pull qwen2.5vl:1.5b; wait"
+# Verify the model is installed
+docker-compose exec ollama ollama list
 ```
 
-## 📊 Performance
+### 5. Test the Bot
 
-- **First startup**: ~5 minutes (downloads Qwen model)
-- **Subsequent starts**: ~30 seconds
-- **AI processing**: ~3-5 seconds per request
-- **Face recognition**: ~1-2 seconds per comparison
-- **Concurrent users**: Limited by available memory
+1. Find your bot on Telegram using the username you created
+2. Send `/start` to begin using the bot
+3. Choose from the available KYC verification options
 
-## 🗂️ File Structure
+## Services
 
-```
-telegram-version/
-├── main.py              # Telegram bot application
-├── requirements.txt     # Python dependencies
-├── Dockerfile          # Bot container configuration
-├── docker-compose.yml  # Services orchestration
-├── env.example         # Environment template
-├── README.md           # This file
-└── .gitignore          # Git ignore rules
-```
+### Telegram Bot
 
-## 🐳 Docker Services
-
-### Ollama Service
-
-- **Purpose**: AI model server (Qwen 2.5 VLM)
-- **Port**: 11434
-- **Volume**: `ollama-data` (persistent model storage)
-
-### Telegram Bot Service
-
-- **Purpose**: Telegram bot interface
+- **Container**: `zkyc-telegram-bot`
+- **Port**: None (connects to Telegram API)
 - **Dependencies**: Ollama service
-- **Environment**: Bot token, Ollama URL
 
-## 🔍 Bot Architecture
+### Ollama (AI Model Server)
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Telegram      │    │  Telegram Bot   │    │     Ollama      │
-│     User        │◄──►│   (Python)      │◄──►│   Qwen 2.5 VLM  │
-│                 │    │                 │    │                 │
-│ • Photo Upload  │    │ • Image Process │    │ • AI Inference  │
-│ • Commands      │    │ • Face Compare  │    │ • Text Extract  │
-│ • Get Results   │    │ • DeepFace      │    │ • Vision AI     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+- **Container**: `ollama`
+- **Port**: `11434` (exposed for debugging)
+- **Model**: Qwen 2.5 Vision Language Model (3B parameters)
 
-## 📱 Example Responses
+## Usage
 
-### Text Extraction Result:
+The bot provides three main features:
 
-```
-✅ Document Analysis Complete!
+1. **Text Extraction**: Upload a document image to extract text
+2. **Face Recognition**: Compare two photos for face matching
+3. **Full KYC Verification**: Complete identity verification process
 
-🔍 Extracted Information:
-```
+## Troubleshooting
 
-Name: John Doe
-ID Number: ABC123456789
-Date of Birth: January 1, 1990
-Document Type: Driver's License
-Nationality: US
-
-```
-
-🤖 Powered by Qwen 2.5 Vision Model
-```
-
-### KYC Verification Report:
-
-```
-🏛️ KYC VERIFICATION REPORT
-
-Verification ID: 20250705_143022
-Timestamp: 2025-07-05 14:30:22
-Status: ✅ VERIFIED
-
-📋 Extracted ID Information:
-```
-
-[Structured ID data]
-
-```
-
-👤 Face Verification:
-• Match: YES
-• Confidence: 87.5%
-• Technical Score: 0.234
-
-🤖 Verification Method: AI-powered analysis
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**Bot not responding:**
+### Bot not responding
 
 ```bash
 # Check bot logs
 docker-compose logs telegram-bot
 
-# Restart bot service
+# Restart the bot
 docker-compose restart telegram-bot
 ```
 
-**Model not available:**
+### Ollama connection issues
 
 ```bash
 # Check Ollama status
-docker-compose logs ollama
+docker-compose exec ollama ollama list
 
-# Manually pull model
+# Restart Ollama
+docker-compose restart ollama
+
+# Pull the model again if needed
 docker-compose exec ollama ollama pull qwen2.5vl:3b
 ```
 
-**Out of memory:**
-
-- Use smaller model (`qwen2.5vl:1.5b`)
-- Increase Docker memory limits
-- Process one request at a time
-
-### Error Messages
-
-| Error                     | Solution                                     |
-| ------------------------- | -------------------------------------------- |
-| "Invalid bot token"       | Check `TELEGRAM_BOT_TOKEN` in `.env`         |
-| "AI service error"        | Ensure Ollama is running and model is loaded |
-| "Face recognition failed" | Use clear photos with visible faces          |
-
-## 🔐 Security & Privacy
-
-- **No data storage**: Images processed in memory only
-- **Temporary files**: Auto-deleted after processing
-- **Local processing**: All AI runs locally (no cloud API calls)
-- **Bot token**: Keep your bot token secure and private
-
-## 🚀 Production Deployment
-
-### Resource Requirements
-
-- **CPU**: 4+ cores recommended
-- **RAM**: 8GB minimum, 16GB recommended
-- **Storage**: 10GB for models and system
-- **Network**: Stable internet for Telegram API
-
-### Scaling Considerations
-
-- Single bot instance handles multiple users
-- Memory usage scales with concurrent requests
-- Consider load balancing for high traffic
-
-## 🔄 Development
-
-### Local Development
+### Model not found
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Set environment variables
-export TELEGRAM_BOT_TOKEN="your_token"
-export OLLAMA_BASE_URL="http://localhost:11434"
-
-# Run Ollama separately
-ollama serve
-ollama pull qwen2.5vl:3b
-
-# Run bot
-python main.py
+# Install the required model
+docker-compose exec ollama ollama pull qwen2.5vl:3b
 ```
 
-### Testing
+## Development
 
-1. Create a test bot with @BotFather
-2. Use the test token for development
-3. Test with sample images
+To modify the bot:
 
-## 📄 License
+1. Edit `main.py`
+2. Rebuild the container:
+   ```bash
+   docker-compose build telegram-bot
+   docker-compose up -d telegram-bot
+   ```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Stopping Services
 
-## 🤝 Contributing
+```bash
+# Stop all services
+docker-compose down
 
-1. Fork the repository
-2. Create your feature branch
-3. Test with sample images
-4. Submit a pull request
+# Stop and remove volumes (clears model data)
+docker-compose down -v
+```
 
-## 🔗 Related Projects
+## Security Notes
 
-- [Ollama](https://ollama.ai/) - Local LLM runner
-- [Qwen2.5-VL](https://github.com/QwenLM/Qwen2.5-VL) - Vision Language Model
-- [DeepFace](https://github.com/serengil/deepface) - Face Recognition Library
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Telegram Bot API
+- Keep your bot token secure and never commit it to version control
+- The bot processes sensitive identity documents - ensure proper security measures
+- Use environment variables for sensitive configuration
 
-## 📞 Support
+## Architecture
 
-For issues and questions:
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Telegram      │    │   Bot Container │    │ Ollama Container│
+│   Users         │◄──►│   (Python)      │◄──►│ (Qwen 2.5 VLM)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
-1. Check the troubleshooting section
-2. Review Docker logs: `docker-compose logs`
-3. Create an issue on GitHub
-
----
-
-**🤖 Powered by Qwen 2.5 Vision Model + DeepFace + Telegram**
+The bot receives images from Telegram users, processes them using the Qwen 2.5 Vision Language Model running in Ollama, and returns structured results for KYC verification.

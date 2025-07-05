@@ -529,9 +529,24 @@ Use <code>/start</code> to begin using the bot!
 
 def main() -> None:
     """Start the bot."""
+    logger.info("=== ZKYC Telegram Bot Starting ===")
+    logger.info(f"Bot Token: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
+    logger.info(f"Ollama URL: {OLLAMA_BASE_URL}")
+    logger.info(f"Qwen Model: {QWEN_MODEL}")
+    
     if not BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN environment variable is required!")
         return
+    
+    # Test Ollama connection
+    try:
+        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
+        if response.status_code == 200:
+            logger.info("✅ Ollama connection successful")
+        else:
+            logger.warning(f"⚠️ Ollama responded with status {response.status_code}")
+    except Exception as e:
+        logger.error(f"❌ Ollama connection failed: {str(e)}")
     
     application = Application.builder().token(BOT_TOKEN).build()
     
@@ -547,8 +562,12 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     
     # Start the bot
-    logger.info("Starting ZKYC Telegram Bot...")
-    application.run_polling()
+    logger.info("🚀 Starting ZKYC Telegram Bot...")
+    try:
+        application.run_polling()
+    except Exception as e:
+        logger.error(f"❌ Bot failed to start: {str(e)}")
+        raise
 
 if __name__ == '__main__':
     main() 
