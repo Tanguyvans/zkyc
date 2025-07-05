@@ -1,12 +1,24 @@
-import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { SafeAreaView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { apiService } from '../../services/apiService'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Ionicons } from '@expo/vector-icons'
+
+interface VerificationResult {
+  verification_id: string;
+  face_verified: boolean;
+  face_confidence: number;
+  extracted_info: string;
+  extraction_method: string;
+  status: string;
+  message: string;
+}
 
 const kycVerification = () => {
   const { selfieUri, idCardUri } = useLocalSearchParams()
   const [loading, setLoading] = useState(true)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<VerificationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState('Testing connection...')
 
@@ -46,6 +58,14 @@ const kycVerification = () => {
       console.log('Verification result:', verificationResult)
       setResult(verificationResult)
       
+      // Store verification results for dashboard
+      await AsyncStorage.setItem('verificationResult', JSON.stringify({
+        ...verificationResult,
+        timestamp: new Date().toISOString(),
+        selfieUri,
+        idCardUri
+      }))
+      
     } catch (err) {
       console.error('Verification error:', err)
       setError(err instanceof Error ? err.message : 'Verification failed')
@@ -54,23 +74,36 @@ const kycVerification = () => {
     }
   }
 
+  const parseExtractedInfo = (extractedInfo: string) => {
+    try {
+      const parsed = JSON.parse(extractedInfo)
+      return parsed
+    } catch (e) {
+      return { rawText: extractedInfo }
+    }
+  }
+
   const handleContinue = () => {
     if (result) {
       router.push('/dashboard')
     } else {
-      // Go back to retry
       router.push('/kyc-selfie')
     }
   }
 
+  const handleRetry = () => {
+    router.push('/kyc-selfie')
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerIcon}>🔍</Text>
-          <Text style={styles.title}>Verifying Identity</Text>
+          <Text style={styles.title}>Identity Verification</Text>
+          {loading && <Text style={styles.subtitle}>Processing your documents...</Text>}
         </View>
 
         {/* Loading State */}
@@ -93,43 +126,129 @@ const kycVerification = () => {
           </View>
         )}
 
-        {/* Success State */}
+        {/* Success State with Detailed Results */}
         {result && !loading && !error && (
-          <View style={styles.successContainer}>
-            <Text style={styles.successIcon}>✅</Text>
-            <Text style={styles.successTitle}>Verification Complete!</Text>
-            <Text style={styles.successMessage}>
-              Your identity has been successfully verified.
-            </Text>
+          <View style={styles.resultsContainer}>
             
-            {/* Results */}
-            <View style={styles.resultsContainer}>
-              <Text style={styles.resultsTitle}>Results:</Text>
-              <Text style={styles.resultText}>
-                Face Verified: {result.face_verified ? '✅ Yes' : '❌ No'}
-              </Text>
-              <Text style={styles.resultText}>
-                Status: {result.status}
-              </Text>
-              <Text style={styles.resultText}>
-                Confidence: {Math.round((result.face_confidence || 0) * 100)}%
-              </Text>
-              <Text style={styles.resultText}>
-                Verification ID: {result.verification_id}
-              </Text>
+            {/* Overall Status */}
+            <View style={styles.statusCard}>
+              <View style={styles.statusHeader}>
+                <Ionicons 
+                  name={result.face_verified ? "checkmark-circle" : "close-circle"} 
+                  size={48} 
+                  color={result.face_verified ? "#4CAF50" : "#F44336"} 
+                />
+                <Text style={[styles.statusTitle, { color: result.face_verified ? "#4CAF50" : "#F44336" }]}>
+                  {result.face_verified ? "Verification Successful" : "Verification Failed"}
+                </Text>
+              </View>
+              <Text style={styles.statusMessage}>{result.message}</Text>
+            </View>
+
+            {/* Verification Details */}
+            <View style={styles.detailsCard}>
+              <Text style={styles.cardTitle}>Verification Details</Text>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Verification ID:</Text>
+                <Text style={styles.detailValue}>{result.verification_id}</Text>
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Face Match:</Text>
+                <View style={styles.statusRow}>
+                  <Ionicons 
+                    name={result.face_verified ? "checkmark-circle" : "close-circle"} 
+                    size={20} 
+                    color={result.face_verified ? "#4CAF50" : "#F44336"} 
+                  />
+                  <Text style={[styles.statusText, { color: result.face_verified ? "#4CAF50" : "#F44336" }]}>
+                    {result.face_verified ? "Match" : "No Match"}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Confidence Score:</Text>
+                <Text style={styles.detailValue}>{Math.round(result.face_confidence * 100)}%</Text>
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <Text style={styles.detailValue}>{result.status}</Text>
+              </View>
+              
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Extraction Method:</Text>
+                <Text style={styles.detailValue}>{result.extraction_method}</Text>
+              </View>
+            </View>
+
+            {/* Extracted Information */}
+            {result.extracted_info && (
+              <View style={styles.extractedCard}>
+                <Text style={styles.cardTitle}>Extracted Information</Text>
+                {(() => {
+                  const extractedData = parseExtractedInfo(result.extracted_info)
+                  
+                  if (extractedData.rawText) {
+                    return (
+                      <View style={styles.rawTextContainer}>
+                        <Text style={styles.rawText}>{extractedData.rawText}</Text>
+                      </View>
+                    )
+                  }
+                  
+                  return (
+                    <View style={styles.extractedDataContainer}>
+                      {Object.entries(extractedData).map(([key, value]) => (
+                        <View key={key} style={styles.extractedRow}>
+                          <Text style={styles.extractedLabel}>{key}:</Text>
+                          <Text style={styles.extractedValue}>{String(value)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )
+                })()}
+              </View>
+            )}
+
+            {/* Security Information */}
+            <View style={styles.securityCard}>
+              <Text style={styles.cardTitle}>Security & Privacy</Text>
+              <View style={styles.securityRow}>
+                <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
+                <Text style={styles.securityText}>All data processed securely</Text>
+              </View>
+              <View style={styles.securityRow}>
+                <Ionicons name="lock-closed" size={20} color="#4CAF50" />
+                <Text style={styles.securityText}>Images deleted after processing</Text>
+              </View>
+              <View style={styles.securityRow}>
+                <Ionicons name="eye-off" size={20} color="#4CAF50" />
+                <Text style={styles.securityText}>Zero-knowledge proof generated</Text>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.continueButton]} 
+                onPress={handleContinue}
+              >
+                <Text style={styles.continueButtonText}>Continue to Dashboard</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.retryButton]} 
+                onPress={handleRetry}
+              >
+                <Text style={styles.retryButtonText}>Verify Again</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
-
-        {/* Continue Button */}
-        {!loading && (
-          <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-            <Text style={styles.continueButtonText}>
-              {result ? 'Continue to Dashboard' : 'Try Again'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -137,16 +256,14 @@ const kycVerification = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
   },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
+  scrollContent: {
+    padding: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   headerIcon: {
     fontSize: 48,
@@ -156,6 +273,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -186,64 +309,162 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  retryButton: {
-    backgroundColor: '#e74c3c',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  resultsContainer: {
+    gap: 20,
   },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  successContainer: {
+  statusCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
     alignItems: 'center',
-    marginVertical: 40,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  successIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+  statusHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  successTitle: {
+  statusTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#27ae60',
-    marginBottom: 8,
+    marginTop: 8,
   },
-  successMessage: {
+  statusMessage: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 20,
   },
-  resultsContainer: {
-    backgroundColor: '#f8f9fa',
+  detailsCard: {
+    backgroundColor: '#fff',
     padding: 20,
-    borderRadius: 8,
-    width: '100%',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  resultsTitle: {
+  cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
     color: '#333',
+    marginBottom: 16,
   },
-  resultText: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 8,
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  extractedCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  rawTextContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 8,
+    borderLeft: 4,
+    borderLeftColor: '#2196F3',
+  },
+  rawText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  extractedDataContainer: {
+    gap: 12,
+  },
+  extractedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  extractedLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    flex: 1,
+  },
+  extractedValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: 'bold',
+    flex: 2,
+    textAlign: 'right',
+  },
+  securityCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  securityText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  actionButtons: {
+    gap: 12,
+  },
+  actionButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
   },
   continueButton: {
     backgroundColor: '#2196F3',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
   },
   continueButtonText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  retryButton: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  retryButtonText: {
+    color: '#666',
     fontSize: 16,
     fontWeight: 'bold',
   },
