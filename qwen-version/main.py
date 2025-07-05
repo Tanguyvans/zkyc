@@ -296,6 +296,83 @@ async def id_verify(
         
         raise HTTPException(status_code=500, detail=f"AI KYC verification error: {str(e)}")
 
+@app.post("/id-verify-base64")
+async def id_verify_base64(request: Dict[str, str]):
+    """
+    KYC verification using base64 encoded images (better for React Native)
+    """
+    try:
+        id_card_base64 = request.get("id_card_base64")
+        selfie_base64 = request.get("selfie_base64")
+        
+        if not id_card_base64 or not selfie_base64:
+            raise HTTPException(status_code=400, detail="Both id_card_base64 and selfie_base64 are required")
+        
+        temp_dir = tempfile.mkdtemp()
+        
+        # Decode base64 images and save to temp files
+        id_card_path = os.path.join(temp_dir, "id_card.jpg")
+        selfie_path = os.path.join(temp_dir, "selfie.jpg")
+        
+        with open(id_card_path, "wb") as f:
+            f.write(base64.b64decode(id_card_base64))
+        
+        with open(selfie_path, "wb") as f:
+            f.write(base64.b64decode(selfie_base64))
+        
+        # 1. AI-powered ID extraction
+        id_extraction_prompt = """
+        Extract key information from this ID document and output it as a JSON object.
+        The JSON should include fields for:
+        - Name
+        - Surname
+        - ID Number
+        - Date of Birth
+        - Document Type
+        - Nationality
+        - Any other important details found on the document.
+        
+        Your response must be only the JSON object.
+        """
+        
+        extracted_text = query_qwen_vision(id_card_path, id_extraction_prompt)
+        
+        # 2. Face verification
+        face_result = DeepFace.verify(
+            img1_path=id_card_path, 
+            img2_path=selfie_path,
+            enforce_detection=False
+        )
+        
+        # 3. Save results with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Clean up temporary files
+        os.remove(id_card_path)
+        os.remove(selfie_path)
+        os.rmdir(temp_dir)
+        
+        return {
+            "verification_id": timestamp,
+            "face_verified": face_result["verified"],
+            "face_confidence": 1.0 - face_result["distance"],
+            "extracted_info": extracted_text,
+            "extraction_method": "AI-powered vision",
+            "status": "success",
+            "message": "AI-powered KYC verification completed successfully"
+        }
+        
+    except Exception as e:
+        # Clean up temporary files in case of error
+        if 'id_card_path' in locals() and os.path.exists(id_card_path):
+            os.remove(id_card_path)
+        if 'selfie_path' in locals() and os.path.exists(selfie_path):
+            os.remove(selfie_path)
+        if 'temp_dir' in locals() and os.path.exists(temp_dir):
+            os.rmdir(temp_dir)
+        
+        raise HTTPException(status_code=500, detail=f"AI KYC verification error: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

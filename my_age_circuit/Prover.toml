@@ -1,5 +1,0 @@
-# Private inputs (kept secret)
-age = "25" # Your actual age (replace with your real age)
-
-# Public inputs (visible to verifier)
-min_age = "18" # Minimum age requirement
