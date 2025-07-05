@@ -11,7 +11,7 @@ services:
       - "/bin/ollama serve & sleep 5; ollama pull qwen2.5vl:3b; wait"
 
   zkyc-qwen:
-    image: ghcr.io/tanguyvans/zkyc:qwen-arm64
+    image: ghcr.io/tanguyvans/zkyc:qwen-1.0
     ports:
       - "8000:8000"
     depends_on:
