@@ -222,15 +222,17 @@ async def id_verify(
         
         # 1. AI-powered ID extraction
         id_extraction_prompt = """
-        Extract key information from this ID document:
-        - Full name
-        - ID number
-        - Date of birth
-        - Document type
+        Extract key information from this ID document and output it as a JSON object.
+        The JSON should include fields for:
+        - Name
+        - Surname
+        - ID Number
+        - Date of Birth
+        - Document Type
         - Nationality
-        - Any other important details
+        - Any other important details found on the document.
         
-        Format as clear, structured text.
+        Your response must be only the JSON object.
         """
         
         extracted_text = query_qwen_vision(id_card_path, id_extraction_prompt)
