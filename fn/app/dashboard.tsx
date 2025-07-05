@@ -154,6 +154,19 @@ const Dashboard = () => {
 
       {/* Proof Generation Buttons */}
       <View style={styles.proofButtonsContainer}>
+        <TouchableOpacity style={styles.proofGenerationButton} onPress={() => router.push('/kyc-workflow')}>
+          <LinearGradient
+            colors={['#FF6B35', '#F15A29']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.proofButtonGradient}
+          >
+            <Ionicons name="camera" size={24} color="#fff" />
+            <Text style={styles.proofButtonText}>Complete KYC</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+        
         <TouchableOpacity style={styles.proofGenerationButton} onPress={() => router.push('/proof-generation')}>
           <LinearGradient
             colors={['#4CAF50', '#45a049']}
