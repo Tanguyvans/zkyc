@@ -1,0 +1,40 @@
+services:
+  ollama:
+    image: "docker.io/ollama/ollama"
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama-data:/root/.ollama
+    entrypoint:
+      [
+        "/usr/bin/bash",
+        "-c",
+        "/bin/ollama serve & sleep 5; ollama pull qwen2.5vl:3b; wait",
+      ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  qwen-api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OLLAMA_BASE_URL=http://ollama:11434
+
+networks:
+  default:
+    name: zkyc-qwen-network
