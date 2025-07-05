@@ -1,5 +1,7 @@
 env/
 img/
+ollama-data/
+uploads/
 
 .env 
 
