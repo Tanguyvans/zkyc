@@ -12,7 +12,7 @@ services:
         "/bin/ollama serve & sleep 5; ollama pull qwen2.5vl:3b; wait",
       ]
   zk_bot:
-    image: ghcr.io/tanguyvans/zkyc-telegram-2:latest
+    build: .
     environment:
       - TOKEN=${TOKEN}
       - OLLAMA_BASE_URL=http://ollama:11434
