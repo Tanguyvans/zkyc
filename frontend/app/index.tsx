@@ -36,8 +36,8 @@ export default function Index() {
             elevation: 5,
           }}
           onPress={() => {
-            // Skip the login screen and go directly to KYC
-            router.push('/(onboarding)/kyc');
+            // Navigate to login first, then login will handle going to KYC
+            router.push('/(auth)/login');
           }}
         >
           <Text style={{ color: 'white', fontSize: 24 }}>→</Text>
