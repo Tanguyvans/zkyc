@@ -1,36 +1,127 @@
 import { SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Modal, Dimensions } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Path, Line } from 'react-native-svg'
 import { router } from 'expo-router'
 import * as Clipboard from 'expo-clipboard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 const { width, height } = Dimensions.get('window')
+
+interface VerificationResult {
+  verification_id: string;
+  face_verified: boolean;
+  face_confidence: number;
+  extracted_info: string;
+  status: string;
+  message: string;
+  timestamp: string;
+}
+
+interface UserData {
+  name: string;
+  verificationResult: VerificationResult | null;
+  isVerified: boolean;
+  verificationDate: string;
+}
 
 const Dashboard = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState(false)
+  const [loading, setLoading] = useState(true)
   
+  // User data state
+  const [userData, setUserData] = useState<UserData>({
+    name: 'User',
+    verificationResult: null,
+    isVerified: false,
+    verificationDate: new Date().toLocaleDateString()
+  })
+
+  // Load user data from storage
+  useEffect(() => {
+    loadUserData()
+  }, [])
+
+  const loadUserData = async () => {
+    try {
+      const storedResult = await AsyncStorage.getItem('verificationResult')
+      const storedUser = await AsyncStorage.getItem('userData')
+      
+      let verificationResult = null
+      let existingUserData = null
+      
+      if (storedResult) {
+        verificationResult = JSON.parse(storedResult)
+      }
+      
+      if (storedUser) {
+        existingUserData = JSON.parse(storedUser)
+      }
+      
+      // Extract name from verification result if available
+      const extractedName = getNameFromVerification(verificationResult)
+      
+      const newUserData: UserData = {
+        name: existingUserData?.name || extractedName || 'User',
+        verificationResult: verificationResult,
+        isVerified: verificationResult?.face_verified || false,
+        verificationDate: verificationResult?.timestamp 
+          ? new Date(verificationResult.timestamp).toLocaleDateString() 
+          : new Date().toLocaleDateString()
+      }
+      
+      setUserData(newUserData)
+      
+      // Save updated user data
+      await AsyncStorage.setItem('userData', JSON.stringify(newUserData))
+      
+    } catch (error) {
+      console.error('Error loading user data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getNameFromVerification = (verificationResult: VerificationResult | null) => {
+    if (verificationResult?.extracted_info) {
+      try {
+        const info = JSON.parse(verificationResult.extracted_info)
+        return info.Name || info.name || info.full_name || info.firstName || null
+      } catch (e) {
+        return null
+      }
+    }
+    return null
+  }
+
   const [userKycStatus] = useState({
-    verified: true,
-    verificationDate: '2024-01-15',
+    verified: userData.isVerified,
+    verificationDate: userData.verificationDate,
     level: 'Level 2',
-    documents: ['ID Card', 'Selfie', 'Proof of Address']
+    documents: ['ID Card', 'Selfie']
   })
 
   const [verificationDetails] = useState({
-    issueDate: verificationResult?.timestamp ? new Date(verificationResult.timestamp).toLocaleDateString() : '2024-01-15',
+    issueDate: userData.verificationDate,
     expiryDate: '2025-01-15',
     verificationLevel: 'Level 2',
-    zkProofHash: verificationResult?.verification_id || '0x9876543210fedcba',
-    proofVerified: verificationResult?.face_verified || false,
-    confidence: verificationResult?.face_confidence || 0,
-    extractedInfo: verificationResult?.extracted_info || 'No data extracted',
+    zkProofHash: userData.verificationResult?.verification_id || '0x9876543210fedcba',
+    proofVerified: userData.isVerified,
+    confidence: userData.verificationResult?.face_confidence || 0,
+    extractedInfo: userData.verificationResult?.extracted_info || 'No data extracted',
     documents: [
-      { name: 'Government ID', status: 'verified', date: '2024-01-10' },
-      { name: 'Selfie Verification', status: 'verified', date: '2024-01-12' },
-      { name: 'Proof of Address', status: 'verified', date: '2024-01-14' }
+      { 
+        name: 'Government ID', 
+        status: userData.verificationResult?.status === 'success' ? 'verified' : 'pending', 
+        date: userData.verificationDate
+      },
+      { 
+        name: 'Selfie Verification', 
+        status: userData.isVerified ? 'verified' : 'pending', 
+        date: userData.verificationDate
+      }
     ],
     permissions: ['Identity Verification', 'Address Verification', 'Age Verification']
   })
@@ -40,7 +131,7 @@ const Dashboard = () => {
       id: 1,
       name: 'CryptoExchange Pro',
       logo: '🏦',
-      status: 'approved',
+      status: userData.isVerified ? 'approved' : 'pending',
       lastAccess: '2024-01-20',
       permissions: ['Identity Verification', 'Address Verification'],
       kycLevel: 'Level 2'
@@ -54,20 +145,11 @@ const Dashboard = () => {
       permissions: ['Identity Verification'],
       kycLevel: 'Level 1'
     },
-    // {
-    //   id: 3,
-    //   name: 'NFT Marketplace',
-    //   logo: '🎨',
-    //   status: 'approved',
-    //   lastAccess: '2024-01-22',
-    //   permissions: ['Identity Verification', 'Address Verification', 'Age Verification'],
-    //   kycLevel: 'Level 2'
-    // },
     {
       id: 4,
       name: 'Gaming Platform',
       logo: '🎮',
-      status: 'rejected',
+      status: userData.isVerified ? 'approved' : 'rejected',
       lastAccess: '2024-01-16',
       permissions: ['Age Verification'],
       kycLevel: 'Level 1'
@@ -92,6 +174,28 @@ const Dashboard = () => {
     }
   }
 
+  const copyVerificationId = async () => {
+    try {
+      if (userData.verificationResult?.verification_id) {
+        await Clipboard.setStringAsync(userData.verificationResult.verification_id)
+        setCopyFeedback(true)
+        setTimeout(() => setCopyFeedback(false), 2000)
+      }
+    } catch (error) {
+      console.error('Failed to copy verification ID:', error)
+    }
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading your profile...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Top User Greeting Card */}
@@ -102,24 +206,23 @@ const Dashboard = () => {
         />
         <View>
           <Text style={styles.goodMorning}>Good Morning</Text>
-          <Text style={styles.userName}>Hi, Kunal Bhatia</Text>
+          <Text style={styles.userName}>Hi, {userData.name}</Text>
         </View>
         <TouchableOpacity onPress={() => router.push('/profile')} style={{ marginLeft: 'auto' }}>
             <Ionicons name="menu" size={24} color="#888" />
         </TouchableOpacity>
       </View>
 
-      {/* Credit Card Glassmorphism Featured Card */}
+      {/* Verification Status Card */}
       <TouchableOpacity style={styles.creditCardContainer} activeOpacity={0.9} onPress={() => setModalVisible(true)}>
         <LinearGradient
-          colors={['rgba(30, 30, 30, 0.9)', 'rgb(10, 10, 10)']}
+          colors={userData.isVerified ? 
+            ['rgba(76, 175, 80, 0.9)', 'rgba(56, 142, 60, 1)'] : 
+            ['rgba(255, 152, 0, 0.9)', 'rgba(245, 124, 0, 1)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.creditCardGradient}
         >
-          {/* Glass overlay */}
-          <View style={{}} />
-
           {/* Card chip icon */}
           <View style={styles.chipContainer}>
             <View style={styles.chip}>
@@ -129,7 +232,7 @@ const Dashboard = () => {
             </View>
           </View>
 
-          {/* Circuitry lines (SVG) */}
+          {/* Circuitry lines */}
           <View style={styles.circuitryContainer}>
             <Svg height="60" width="80">
               <Line x1="0" y1="10" x2="60" y2="10" stroke="#bbb" strokeWidth="2" />
@@ -142,289 +245,161 @@ const Dashboard = () => {
           {/* Card content */}
           <View style={styles.cardContent}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={{ marginRight: 6 }} />
-              <Text style={styles.verifiedTag}>Verified</Text>
+              <Ionicons 
+                name={userData.isVerified ? "checkmark-circle" : "time"} 
+                size={22} 
+                color="#fff" 
+                style={{ marginRight: 6 }} 
+              />
+              <Text style={styles.verifiedTag}>
+                {userData.isVerified ? 'Verified' : 'Pending'}
+              </Text>
             </View>
-            <Text style={styles.cardSubtitle}>0x1234567890abcdef1234567890abcdef12345678</Text>
-            <Text style={styles.issuedText}>Issued: Jan 15, 2024</Text>
+            <Text style={styles.cardSubtitle}>
+              Verification ID: {userData.verificationResult?.verification_id || 'N/A'}
+            </Text>
+            <Text style={styles.issuedText}>
+              Confidence: {Math.round((userData.verificationResult?.face_confidence || 0) * 100)}%
+            </Text>
           </View>
           <View style={styles.playButton2}>
-            {/* <Ionicons name="play" size={28} color="#fff" /> */}
-            {/* <Image source={require('../assets/images/play.png')} style={{ width: 28, height: 28 }} /> */}
             <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>zKYC</Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
 
       {/* Scrollable content */}
-      <View style={{ flex: 1 }}>
-        <View>
-          {/* Stats Cards */}
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20}}>
-            <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(apps)/all')}>
-              <Ionicons name="apps" size={24} color="#2196F3" />
-              <Text style={styles.statNumber}>{connectedApps.length}</Text>
-              <Text style={styles.statLabel}>Connected</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(apps)/approved')}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-              <Text style={styles.statNumber}>
-                {connectedApps.filter(app => app.status === 'approved').length}
-              </Text>
-              <Text style={styles.statLabel}>Approved</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(apps)/pending')}>
-              <Ionicons name="time" size={24} color="#FF9800" />
-              <Text style={styles.statNumber}>
-                {connectedApps.filter(app => app.status === 'pending').length}
-              </Text>
-              <Text style={styles.statLabel}>Pending</Text>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {/* Stats Cards */}
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20}}>
+          <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(apps)/all')}>
+            <Ionicons name="apps" size={24} color="#2196F3" />
+            <Text style={styles.statNumber}>{connectedApps.length}</Text>
+            <Text style={styles.statLabel}>Connected</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(apps)/approved')}>
+            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+            <Text style={styles.statNumber}>
+              {connectedApps.filter(app => app.status === 'approved').length}
+            </Text>
+            <Text style={styles.statLabel}>Approved</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(apps)/pending')}>
+            <Ionicons name="time" size={24} color="#FF9800" />
+            <Text style={styles.statNumber}>
+              {connectedApps.filter(app => app.status === 'pending').length}
+            </Text>
+            <Text style={styles.statLabel}>Pending</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Verification Details Section */}
+        {userData.verificationResult && (
+          <View style={styles.verificationSection}>
+            <Text style={styles.sectionTitle}>Verification Details</Text>
+            <View style={styles.detailCard}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <Text style={[styles.detailValue, { color: userData.isVerified ? '#4CAF50' : '#FF9800' }]}>
+                  {userData.isVerified ? 'Verified' : 'Pending'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Confidence:</Text>
+                <Text style={styles.detailValue}>{Math.round((userData.verificationResult.face_confidence || 0) * 100)}%</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Verification ID:</Text>
+                <TouchableOpacity onPress={copyVerificationId} style={styles.copyContainer}>
+                  <Text style={styles.detailValue}>{userData.verificationResult.verification_id}</Text>
+                  <Ionicons 
+                    name={copyFeedback ? "checkmark" : "copy"} 
+                    size={16} 
+                    color={copyFeedback ? "#4CAF50" : "#666"} 
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Date:</Text>
+                <Text style={styles.detailValue}>{userData.verificationDate}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Connected Apps Section */}
+        <View style={styles.appsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Apps</Text>
+            <TouchableOpacity onPress={() => router.push(`/(company)/0`)}>
+              <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Connected Apps Section */}
-          <View style={styles.appsSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Apps</Text>
-              <TouchableOpacity onPress={() => router.push(`/(company)/0`)}>
-                <Text style={styles.viewAllText}>View All</Text>
-              </TouchableOpacity>
-            </View>
-
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.appsScrollView}>
             {connectedApps.map((app) => (
-              <TouchableOpacity key={app.id} style={styles.appCard} onPress={() => router.push(`/(company)/${app.id}`)}>
+              <TouchableOpacity 
+                key={app.id} 
+                style={styles.appCard}
+                onPress={() => router.push(`/(company)/${app.id}`)}
+              >
                 <View style={styles.appHeader}>
-                  <View style={styles.appLogo}>
-                    <Text style={styles.appLogoText}>{app.logo}</Text>
-                  </View>
-                  <View style={styles.appInfo}>
-                    <Text style={styles.appName}>{app.name}</Text>
-                    {/* <Text style={styles.appKycLevel}>{app.kycLevel}</Text> */}
-                    <Text style={styles.appLastAccess}>
-                      Last accessed: {app.lastAccess}
-                    </Text>
-                  </View>
-                  <View style={styles.appStatus}>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(app.status) }]}>
-                      <Ionicons 
-                        name={getStatusIcon(app.status)} 
-                        size={12} 
-                        color="#fff" 
-                      />
-                      <Text style={styles.statusText}>
-                        {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                      </Text>
-                    </View>
+                  <Text style={styles.appLogo}>{app.logo}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(app.status) }]}>
+                    <Ionicons name={getStatusIcon(app.status)} size={12} color="#fff" />
                   </View>
                 </View>
-                
-                {/* <View style={styles.permissionsSection}>
-                  <Text style={styles.permissionsTitle}>Permissions:</Text>
-                  <View style={styles.permissionsList}>
-                    {app.permissions.map((permission, index) => (
-                      <View key={index} style={styles.permissionItem}>
-                        <Ionicons name="key" size={12} color="#666" />
-                        <Text style={styles.permissionText}>{permission}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View> */}
+                <Text style={styles.appName}>{app.name}</Text>
+                <Text style={styles.appKycLevel}>{app.kycLevel}</Text>
+                <Text style={styles.appLastAccess}>Last: {app.lastAccess}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-
-          {/* Quick Actions */}
-          {/* <View style={styles.quickActions}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="add-circle" size={24} color="#2196F3" />
-                <Text style={styles.actionText}>Connect New App</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="settings" size={24} color="#666" />
-                <Text style={styles.actionText}>KYC Settings</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="document-text" size={24} color="#666" />
-                <Text style={styles.actionText}>View Reports</Text>
-              </TouchableOpacity>
-            </View>
-          </View> */}
+          </ScrollView>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Full Screen Verification Modal */}
+      {/* Modal for verification details */}
       <Modal
         animationType="slide"
-        transparent={false}
+        transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          {/* Modal Header */}
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Verification Details</Text>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Verification Details</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              {userData.verificationResult && (
+                <>
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Verification Status</Text>
+                    <Text style={styles.modalText}>
+                      Status: {userData.isVerified ? 'Verified ✅' : 'Pending ⏳'}
+                    </Text>
+                    <Text style={styles.modalText}>
+                      Confidence: {Math.round((userData.verificationResult.face_confidence || 0) * 100)}%
+                    </Text>
+                    <Text style={styles.modalText}>
+                      Verification ID: {userData.verificationResult.verification_id}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>Extracted Information</Text>
+                    <Text style={styles.modalText}>
+                      {userData.verificationResult.extracted_info || 'No data extracted'}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </ScrollView>
           </View>
-
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-
-            <View style={styles.creditCardContainer2}>
-                <LinearGradient
-                colors={['rgba(30,30,30,0.95)', 'rgba(10,10,10,0.85)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.creditCardGradient}
-                >
-                {/* Glass overlay */}
-                <View style={{}} />
-
-                {/* Card chip icon */}
-                <View style={styles.chipContainer}>
-                    <View style={styles.chip}>
-                    <View style={styles.chipStripe} />
-                    <View style={styles.chipStripe} />
-                    <View style={styles.chipStripe} />
-                    </View>
-                </View>
-
-                {/* Circuitry lines (SVG) */}
-                <View style={styles.circuitryContainer}>
-                    <Svg height="60" width="80">
-                    <Line x1="0" y1="10" x2="60" y2="10" stroke="#bbb" strokeWidth="2" />
-                    <Line x1="60" y1="10" x2="80" y2="30" stroke="#bbb" strokeWidth="2" />
-                    <Line x1="0" y1="30" x2="40" y2="30" stroke="#bbb" strokeWidth="2" />
-                    <Line x1="40" y1="30" x2="80" y2="50" stroke="#bbb" strokeWidth="2" />
-                    </Svg>
-                </View>
-
-                {/* Card content */}
-                <View style={styles.cardContent}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={{ marginRight: 6 }} />
-                    <Text style={styles.verifiedTag}>Verified</Text>
-                    </View>
-                    <Text style={styles.cardSubtitle}>0x1234567890abcdef1234567890abcdef12345678</Text>
-                    <Text style={styles.issuedText}>Issued: Jan 15, 2024</Text>
-                </View>
-                <View style={styles.playButton2}>
-                    {/* <Ionicons name="play" size={28} color="#fff" /> */}
-                    {/* <Image source={require('../assets/images/play.png')} style={{ width: 28, height: 28 }} /> */}
-                    <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>zKYC</Text>
-                </View>
-                </LinearGradient>
-            </View>
-
-            {/* Verification Status Card */}
-            {/* <View style={styles.verificationStatusCard}> */}
-              {/* <LinearGradient
-                colors={['#4CAF50', '#45a049']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.statusGradient} */}
-              {/* > */}
-                {/* <View style={styles.statusContent}>
-                  <Ionicons name="checkmark-circle" size={48} color="#fff" />
-                  <Text style={styles.statusTitle}>Verified</Text>
-                  {/* <Text style={styles.statusSubtitle}>Level 2 Verification</Text> */}
-                {/* </View> */} 
-              {/* </LinearGradient> */}
-            {/* </View> */}
-
-            {/* Wallet Address Section */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Wallet Address</Text>
-              <View style={styles.walletCard}>
-                <Ionicons name="wallet" size={20} color="#2196F3" />
-                <Text style={styles.walletAddress}>{verificationDetails.walletAddress}</Text>
-                <TouchableOpacity style={styles.copyButton} onPress={() => {}}>
-                  <Ionicons 
-                    name={copyFeedback ? "checkmark" : "copy"} 
-                    size={16} 
-                    color={copyFeedback ? "#4CAF50" : "#fff"} 
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* zK Proof Section */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Zero-Knowledge Proof</Text>
-              <View style={styles.proofCard}>
-                <View style={styles.proofHeader}>
-                  <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
-                  <Text style={styles.proofStatus}>Proof Verified</Text>
-                </View>
-                <Text style={styles.proofHash}>{verificationDetails.zkProofHash}</Text>
-                <Text style={styles.proofDescription}>
-                  This proof verifies your identity without revealing any personal information
-                </Text>
-              </View>
-            </View>
-
-            {/* Dates Section */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Verification Dates</Text>
-              <View style={styles.datesContainer}>
-                <View style={styles.dateCard}>
-                  <Ionicons name="calendar" size={20} color="#FF9800" />
-                  <Text style={styles.dateLabel}>Issue Date</Text>
-                  <Text style={styles.dateValue}>{verificationDetails.issueDate}</Text>
-                </View>
-                <View style={styles.dateCard}>
-                  <Ionicons name="time" size={20} color="#F44336" />
-                  <Text style={styles.dateLabel}>Expiry Date</Text>
-                  <Text style={styles.dateValue}>{verificationDetails.expiryDate}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Documents Section */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Verified Documents</Text>
-              {verificationDetails.documents.map((doc, index) => (
-                <View key={index} style={styles.documentCard}>
-                  <View style={styles.documentHeader}>
-                    <Ionicons name="document-text" size={20} color="#4CAF50" />
-                    <Text style={styles.documentName}>{doc.name}</Text>
-                    <View style={styles.verifiedBadge}>
-                      <Ionicons name="checkmark" size={12} color="#fff" />
-                      <Text style={styles.verifiedText}>Verified</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.documentDate}>Verified on {doc.date}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Permissions Section */}
-            <View style={styles.infoSection}>
-              <Text style={styles.sectionTitle}>Granted Permissions</Text>
-              <View style={styles.permissionsContainer}>
-                {verificationDetails.permissions.map((permission, index) => (
-                  <View key={index} style={styles.permissionCard}>
-                    <Ionicons name="key" size={16} color="#2196F3" />
-                    <Text style={styles.permissionText}>{permission}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 40}}>
-              <TouchableOpacity style={styles.primaryButton}>
-                <Ionicons name="download" size={20} color="#fff" />
-                <Text style={styles.primaryButtonText}>Download Proof</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton}>
-                <Ionicons name="share" size={20} color="#2196F3" />
-                <Text style={styles.secondaryButtonText}>Share Verification</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -434,160 +409,112 @@ const Dashboard = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   greetingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
+    padding: 20,
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
+    marginBottom: 20,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
   },
   goodMorning: {
+    fontSize: 14,
     color: '#888',
-    fontSize: 13,
-    fontWeight: '500',
   },
   userName: {
-    color: '#222',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 2,
+    color: '#333',
   },
   creditCardContainer: {
     marginHorizontal: 20,
-    borderRadius: 24,
-    marginBottom: 24,
-    minHeight: 220,
+    marginBottom: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    position: 'relative',
-    elevation: 6,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  creditCardContainer2: {
-    marginHorizontal: 10,
-    borderRadius: 24,
-    marginBottom: 24,
-    minHeight: 220,
-    overflow: 'hidden',
-    position: 'relative',
-    elevation: 6,
-    borderWidth: .2,
-    borderColor: '#f0f0f0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   creditCardGradient: {
-    flex: 1,
-    borderRadius: 24,
-    padding: 24,
-    justifyContent: 'flex-end',
-    minHeight: 200,
-  },
-  glassOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.11)',
-    borderRadius: 24,
-    zIndex: 1,
+    padding: 20,
+    height: 160,
+    justifyContent: 'space-between',
   },
   chipContainer: {
     position: 'absolute',
-    top: 32,
-    right: 32,
-    zIndex: 3,
+    top: 20,
+    right: 20,
   },
   chip: {
-    width: 38,
-    height: 28,
+    width: 40,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 6,
-    backgroundColor: '#e0c97f',
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    flexDirection: 'column',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 8,
   },
   chipStripe: {
-    width: 28,
-    height: 3,
-    backgroundColor: '#bfa14a',
-    marginVertical: 2,
-    borderRadius: 2,
+    width: 2,
+    height: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 1,
   },
   circuitryContainer: {
     position: 'absolute',
-    left: 18,
-    top: 40,
-    zIndex: 2,
-    opacity: 0.5,
-  },
-  verifiedTag: {
-    color: '#4CAF50',
-    fontWeight: 'bold',
-    fontSize: 15,
-    letterSpacing: 1,
-  },
-  issuedText: {
-    color: '#bbb',
-    fontSize: 13,
-    marginTop: 10,
-    fontStyle: 'italic',
+    top: 60,
+    right: 20,
   },
   cardContent: {
-    zIndex: 2,
+    flex: 1,
+    justifyContent: 'flex-end',
   },
-  cardTitle: {
+  verifiedTag: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   cardSubtitle: {
-    color: '#fff',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
-    opacity: 0.6,
+    marginTop: 4,
+  },
+  issuedText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    marginTop: 4,
   },
   playButton2: {
     position: 'absolute',
+    bottom: 20,
     right: 20,
-    bottom: 0,
-    // backgroundColor: '#222',
-    width: 54,
-    height: 54,
-    // borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-    opacity: 0.5,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 20,
   },
   statCard: {
     backgroundColor: '#fff',
-    flex: 1,
-    marginHorizontal: 5,
+    padding: 16,
     borderRadius: 12,
-    padding: 10,
     alignItems: 'center',
+    width: '30%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   statNumber: {
     fontSize: 24,
@@ -597,354 +524,152 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#888',
     marginTop: 4,
-    textAlign: 'center',
-},
-  appsSection: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    borderRadius: 16,
-    // padding: 20,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  verificationSection: {
+    paddingHorizontal: 20,
     marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  viewAllText: {
-    fontSize: 14,
-    color: '#2196F3',
-    fontWeight: '600',
+  detailCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  appCard: {
-    // borderWidth: 1,
-    // borderColor: '#f0f0f0',
-    padding: 5,
-    marginBottom: 15,
+  detailRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  copyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  appsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllText: {
+    color: '#2196F3',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  appsScrollView: {
+    paddingVertical: 8,
+  },
+  appCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginRight: 12,
+    width: 140,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   appHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   appLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  appLogoText: {
     fontSize: 24,
   },
-  appInfo: {
-    flex: 1,
+  statusBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   appName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  appKycLevel: {
     fontSize: 14,
-    color: '#2196F3',
-    marginTop: 2,
-  },
-  appLastAccess: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  appStatus: {
-    alignItems: 'flex-end',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  permissionsSection: {
-    marginTop: 8,
-  },
-  permissionsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
-    marginBottom: 6,
-  },
-  permissionsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  permissionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 15,
     marginBottom: 4,
   },
-  permissionText: {
+  appKycLevel: {
     fontSize: 12,
     color: '#666',
-    marginLeft: 4,
+    marginBottom: 4,
   },
-  quickActions: {
-    backgroundColor: '#fff',
-    margin: 20,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 15,
-  },
-  actionButton: {
-    alignItems: 'center',
-    padding: 15,
-  },
-  actionText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    textAlign: 'center',
+  appLastAccess: {
+    fontSize: 10,
+    color: '#999',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#000',
-    paddingTop: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    position: 'relative',
-  },
-  closeButton: {
-    position: 'absolute',
-    left: 16,
-    padding: 8,
-    zIndex: 1,
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
+    color: '#333',
   },
-  modalContent: {
-    padding: 15,
+  modalBody: {
+    maxHeight: 400,
   },
-  verificationStatusCard: {
-    marginBottom: 20,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  statusGradient: {
-    flex: 1,
-    padding: 16,
-  },
-  statusContent: {
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  statusTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
-  },
-  statusSubtitle: {
-    fontSize: 14,
-    color: '#fff',
-    marginTop: 4,
-  },
-  infoSection: {
+  modalSection: {
     marginBottom: 20,
   },
-  walletCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  walletAddress: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    marginLeft: 12,
-  },
-  copyButton: {
-    padding: 8,
-  },
-  proofCard: {
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  proofHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 8,
   },
-  proofStatus: {
+  modalText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginLeft: 8,
-  },
-  proofHash: {
-    fontSize: 12,
-    color: '#ccc',
-    marginTop: 8,
-  },
-  proofDescription: {
-    fontSize: 12,
-    color: '#ccc',
-    marginTop: 8,
-  },
-  datesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dateCard: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginHorizontal: 4,
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: '#ccc',
+    color: '#666',
     marginBottom: 4,
-  },
-  dateValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  documentCard: {
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: 12,
-  },
-  documentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  documentName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 12,
-  },
-  documentDate: {
-    fontSize: 12,
-    color: '#ccc',
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#4CAF50',
-  },
-  verifiedText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  permissionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  permissionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  primaryButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#4CAF50',
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  primaryButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 8,
-  },
-  secondaryButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: '#2196F3',
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2196F3',
-    marginLeft: 8,
+    lineHeight: 20,
   },
 })
 
