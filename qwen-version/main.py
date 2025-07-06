@@ -323,7 +323,7 @@ async def id_verify_base64(request: Dict[str, str]):
         # 1. AI-powered ID extraction
         id_extraction_prompt = """
         Extract key information from this ID document and output it as a JSON object.
-        The JSON should include fields for:
+        The JSON should include fields like:
         - Name
         - Surname
         - ID Number
