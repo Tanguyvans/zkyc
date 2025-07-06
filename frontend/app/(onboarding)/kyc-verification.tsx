@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { apiService } from '../../services/apiService'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
 
 interface VerificationResult {
   verification_id: string;
@@ -110,85 +111,139 @@ const kycVerification = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* Header */}
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.headerGradient}
+      >
         <View style={styles.header}>
-          <Text style={styles.headerIcon}>🔍</Text>
-          <Text style={styles.title}>Identity Verification</Text>
-          {loading && <Text style={styles.subtitle}>Processing your documents...</Text>}
+          <View style={styles.headerContent}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="shield-checkmark" size={32} color="#fff" />
+            </View>
+            <Text style={styles.title}>Identity Verification</Text>
+            {loading && <Text style={styles.subtitle}>Processing your documents securely...</Text>}
+          </View>
         </View>
+      </LinearGradient>
 
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Loading State */}
         {loading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2196F3" />
-            <Text style={styles.loadingText}>{step}</Text>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}
+              style={styles.loadingCard}
+            >
+              <ActivityIndicator size="large" color="#667eea" />
+              <Text style={styles.loadingText}>{step}</Text>
+              <View style={styles.loadingSteps}>
+                <View style={styles.stepIndicator}>
+                  <View style={[styles.stepDot, { backgroundColor: '#667eea' }]} />
+                  <Text style={styles.stepText}>Uploading</Text>
+                </View>
+                <View style={styles.stepIndicator}>
+                  <View style={[styles.stepDot, { backgroundColor: loading ? '#667eea' : '#e0e0e0' }]} />
+                  <Text style={styles.stepText}>Processing</Text>
+                </View>
+                <View style={styles.stepIndicator}>
+                  <View style={[styles.stepDot, { backgroundColor: result ? '#4CAF50' : '#e0e0e0' }]} />
+                  <Text style={styles.stepText}>Complete</Text>
+                </View>
+              </View>
+            </LinearGradient>
           </View>
         )}
 
         {/* Error State */}
         {error && (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>❌</Text>
-            <Text style={styles.errorTitle}>Verification Failed</Text>
-            <Text style={styles.errorMessage}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={verifyIdentity}>
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
+            <LinearGradient
+              colors={['rgba(244, 67, 54, 0.1)', 'rgba(244, 67, 54, 0.05)']}
+              style={styles.errorCard}
+            >
+              <View style={styles.errorIcon}>
+                <Ionicons name="close-circle" size={48} color="#F44336" />
+              </View>
+              <Text style={styles.errorTitle}>Verification Failed</Text>
+              <Text style={styles.errorMessage}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={verifyIdentity}>
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.retryButtonGradient}
+                >
+                  <Ionicons name="refresh" size={20} color="#fff" />
+                  <Text style={styles.retryButtonText}>Try Again</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
         )}
 
-        {/* Success State with Detailed Results */}
+        {/* Success State */}
         {result && !loading && !error && (
           <View style={styles.resultsContainer}>
             
-            {/* Overall Status */}
-            <View style={styles.statusCard}>
-              <View style={styles.statusHeader}>
+            {/* Success Status Card */}
+            <View style={styles.statusContainer}>
+              <LinearGradient
+                colors={result.face_verified ? ['#4CAF50', '#45a049'] : ['#F44336', '#e53935']}
+                style={styles.statusCard}
+              >
                 <Ionicons 
                   name={result.face_verified ? "checkmark-circle" : "close-circle"} 
                   size={48} 
-                  color={result.face_verified ? "#4CAF50" : "#F44336"} 
+                  color="#fff" 
                 />
-                <Text style={[styles.statusTitle, { color: result.face_verified ? "#4CAF50" : "#F44336" }]}>
-                  {result.face_verified ? "Verification Successful" : "Verification Failed"}
+                <Text style={styles.statusTitle}>
+                  {result.face_verified ? "Identity Verified!" : "Verification Failed"}
                 </Text>
-              </View>
-              <Text style={styles.statusMessage}>{result.message}</Text>
+                <Text style={styles.statusSubtitle}>
+                  {result.face_verified ? "Your identity has been successfully verified" : "Please try again with clearer images"}
+                </Text>
+              </LinearGradient>
             </View>
 
             {/* Verification Details */}
             <View style={styles.detailsCard}>
               <Text style={styles.cardTitle}>Verification Details</Text>
               
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Verification ID:</Text>
-                <Text style={styles.detailValue}>{result.verification_id}</Text>
-              </View>
-              
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Face Match:</Text>
-                <View style={styles.statusRow}>
-                  <Ionicons 
-                    name={result.face_verified ? "checkmark-circle" : "close-circle"} 
-                    size={20} 
-                    color={result.face_verified ? "#4CAF50" : "#F44336"} 
-                  />
-                  <Text style={[styles.statusText, { color: result.face_verified ? "#4CAF50" : "#F44336" }]}>
-                    {result.face_verified ? "Match" : "No Match"}
-                  </Text>
+              <View style={styles.detailItem}>
+                <View style={styles.detailIcon}>
+                  <Ionicons name="finger-print" size={20} color="#667eea" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Verification ID</Text>
+                  <Text style={styles.detailValue}>{result.verification_id}</Text>
                 </View>
               </View>
               
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Confidence Score:</Text>
-                <Text style={styles.detailValue}>{Math.round(result.face_confidence * 100)}%</Text>
+              <View style={styles.detailItem}>
+                <View style={styles.detailIcon}>
+                  <Ionicons name="people" size={20} color="#667eea" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Face Match</Text>
+                  <View style={styles.matchResult}>
+                    <Ionicons 
+                      name={result.face_verified ? "checkmark-circle" : "close-circle"} 
+                      size={16} 
+                      color={result.face_verified ? "#4CAF50" : "#F44336"} 
+                    />
+                    <Text style={[styles.matchText, { color: result.face_verified ? "#4CAF50" : "#F44336" }]}>
+                      {result.face_verified ? "Match" : "No Match"}
+                    </Text>
+                  </View>
+                </View>
               </View>
               
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Status:</Text>
-                <Text style={styles.detailValue}>{result.status}</Text>
+              <View style={styles.detailItem}>
+                <View style={styles.detailIcon}>
+                  <Ionicons name="analytics" size={20} color="#667eea" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Confidence Score</Text>
+                  <Text style={styles.detailValue}>{Math.round(result.face_confidence * 100)}%</Text>
+                </View>
               </View>
             </View>
 
@@ -202,6 +257,7 @@ const kycVerification = () => {
                   if (extractedData.rawText) {
                     return (
                       <View style={styles.rawTextContainer}>
+                        <Ionicons name="document-text" size={20} color="#667eea" />
                         <Text style={styles.rawText}>{extractedData.rawText}</Text>
                       </View>
                     )
@@ -210,8 +266,8 @@ const kycVerification = () => {
                   return (
                     <View style={styles.extractedDataContainer}>
                       {Object.entries(extractedData).map(([key, value]) => (
-                        <View key={key} style={styles.extractedRow}>
-                          <Text style={styles.extractedLabel}>{key}:</Text>
+                        <View key={key} style={styles.extractedItem}>
+                          <Text style={styles.extractedLabel}>{key}</Text>
                           <Text style={styles.extractedValue}>{String(value)}</Text>
                         </View>
                       ))}
@@ -224,34 +280,45 @@ const kycVerification = () => {
             {/* Security Information */}
             <View style={styles.securityCard}>
               <Text style={styles.cardTitle}>Security & Privacy</Text>
-              <View style={styles.securityRow}>
-                <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
-                <Text style={styles.securityText}>All data processed securely</Text>
-              </View>
-              <View style={styles.securityRow}>
-                <Ionicons name="lock-closed" size={20} color="#4CAF50" />
-                <Text style={styles.securityText}>Images deleted after processing</Text>
-              </View>
-              <View style={styles.securityRow}>
-                <Ionicons name="eye-off" size={20} color="#4CAF50" />
-                <Text style={styles.securityText}>Zero-knowledge proof generated</Text>
+              <View style={styles.securityItems}>
+                <View style={styles.securityItem}>
+                  <View style={styles.securityIcon}>
+                    <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={styles.securityText}>All data processed securely</Text>
+                </View>
+                <View style={styles.securityItem}>
+                  <View style={styles.securityIcon}>
+                    <Ionicons name="lock-closed" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={styles.securityText}>Images deleted after processing</Text>
+                </View>
+                <View style={styles.securityItem}>
+                  <View style={styles.securityIcon}>
+                    <Ionicons name="eye-off" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={styles.securityText}>Zero-knowledge proof generated</Text>
+                </View>
               </View>
             </View>
 
             {/* Action Buttons */}
             <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.continueButton]} 
-                onPress={handleContinue}
-              >
-                <Text style={styles.continueButtonText}>Continue to Dashboard</Text>
+              <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
+                <LinearGradient
+                  colors={['#4CAF50', '#45a049']}
+                  style={styles.primaryButtonGradient}
+                >
+                  <Ionicons name="arrow-forward" size={20} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Continue to Dashboard</Text>
+                </LinearGradient>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.retryButton]} 
-                onPress={handleRetry}
-              >
-                <Text style={styles.retryButtonText}>Verify Again</Text>
+              <TouchableOpacity style={styles.secondaryButton} onPress={handleRetry}>
+                <View style={styles.secondaryButtonContent}>
+                  <Ionicons name="refresh" size={20} color="#667eea" />
+                  <Text style={styles.secondaryButtonText}>Verify Again</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -264,51 +331,103 @@ const kycVerification = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
-  scrollContent: {
-    padding: 20,
+  headerGradient: {
+    paddingBottom: 30,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 30,
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
-  headerIcon: {
-    fontSize: 48,
+  headerContent: {
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
   },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    marginTop: -15,
+  },
   loadingContainer: {
+    marginBottom: 20,
+  },
+  loadingCard: {
+    borderRadius: 16,
+    padding: 30,
     alignItems: 'center',
-    marginVertical: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   loadingText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 18,
+    color: '#333',
     marginTop: 16,
+    fontWeight: '600',
+  },
+  loadingSteps: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    width: '100%',
+  },
+  stepIndicator: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  stepDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  stepText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
   errorContainer: {
+    marginBottom: 20,
+  },
+  errorCard: {
+    borderRadius: 16,
+    padding: 30,
     alignItems: 'center',
-    marginVertical: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   errorIcon: {
-    fontSize: 48,
     marginBottom: 16,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#e74c3c',
+    color: '#F44336',
     marginBottom: 8,
   },
   errorMessage: {
@@ -316,105 +435,142 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 22,
+  },
+  retryButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  retryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   resultsContainer: {
     gap: 20,
+    paddingBottom: 40,
   },
-  statusCard: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 2,
+  statusContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  statusHeader: {
+  statusCard: {
+    padding: 30,
     alignItems: 'center',
-    marginBottom: 12,
   },
   statusTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginTop: 8,
+    color: '#fff',
+    marginTop: 12,
   },
-  statusMessage: {
+  statusSubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
+    marginTop: 8,
   },
   detailsCard: {
     backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 12,
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 4,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 20,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  detailIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginRight: 12,
+  },
+  detailContent: {
+    flex: 1,
   },
   detailLabel: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
+    marginBottom: 4,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#333',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  statusRow: {
+  matchResult: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  statusText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  matchText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   extractedCard: {
     backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 12,
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 4,
   },
   rawTextContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    padding: 16,
+    borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
+    borderLeftColor: '#667eea',
   },
   rawText: {
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
+    marginLeft: 12,
+    flex: 1,
   },
   extractedDataContainer: {
     gap: 12,
   },
-  extractedRow: {
+  extractedItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   extractedLabel: {
     fontSize: 14,
@@ -425,56 +581,89 @@ const styles = StyleSheet.create({
   extractedValue: {
     fontSize: 14,
     color: '#333',
-    fontWeight: 'bold',
-    flex: 2,
+    fontWeight: '600',
+    flex: 1,
     textAlign: 'right',
   },
   securityCard: {
     backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 12,
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  securityRow: {
+  securityItems: {
+    gap: 12,
+  },
+  securityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+  },
+  securityIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   securityText: {
     fontSize: 14,
     color: '#666',
+    flex: 1,
   },
   actionButtons: {
     gap: 12,
   },
-  actionButton: {
+  primaryButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  primaryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
   },
-  continueButton: {
-    backgroundColor: '#2196F3',
-  },
-  continueButtonText: {
-    color: 'white',
+  primaryButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
-  retryButton: {
-    backgroundColor: '#f8f9fa',
+  secondaryButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  retryButtonText: {
-    color: '#666',
+  secondaryButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  secondaryButtonText: {
+    color: '#667eea',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
 })
 
