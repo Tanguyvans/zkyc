@@ -3,5 +3,9 @@ img/
 ollama-data/
 uploads/
 
-.env 
+.env
 
+/.idea/.gitignore
+/.idea/easycode.ignore
+/zk-server/.yarn/cache/*
+/zk-server/node_modules/*
