@@ -18,7 +18,7 @@ services:
       retries: 3
 
   qwen-api:
-    image: ghcr.io/tanguyvans/zkyc:qwen-arm64
+    image: ghcr.io/tanguyvans/zkyc:0.7
     ports:
       - "8000:8000"
     volumes:
