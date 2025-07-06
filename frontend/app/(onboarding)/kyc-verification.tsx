@@ -10,67 +10,80 @@ interface VerificationResult {
   face_verified: boolean;
   face_confidence: number;
   extracted_info: string;
-  extraction_method: string;
   status: string;
   message: string;
 }
 
 const kycVerification = () => {
-  const { selfieUri, idCardUri } = useLocalSearchParams()
-  const [loading, setLoading] = useState(true)
-  const [result, setResult] = useState<VerificationResult | null>(null)
+  const params = useLocalSearchParams()
+  const { selfieUri, idCardUri } = params
+  
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState('Testing connection...')
+  const [result, setResult] = useState<VerificationResult | null>(null)
+  const [step, setStep] = useState<string>('')
 
   useEffect(() => {
-    if (selfieUri && idCardUri) {
-      verifyIdentity()
-    } else {
-      setError('Missing image URIs')
-      setLoading(false)
-    }
-  }, [selfieUri, idCardUri])
+    verifyIdentity()
+  }, [])
 
   const verifyIdentity = async () => {
+    if (!selfieUri || !idCardUri) {
+      Alert.alert('Error', 'Missing required images')
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
+      setStep('Uploading images...')
 
-      // Step 1: Test connection
-      setStep('Testing connection...')
-      const isConnected = await apiService.testConnection()
-      if (!isConnected) {
-        throw new Error('Cannot connect to API server. Make sure Docker is running.')
+      const response = await apiService.verifyIDWithSelfie(idCardUri as string, selfieUri as string)
+      console.log('Verification result:', response)
+      
+      if (response.face_verified) {
+        setResult(response)
+        setStep('Verification complete!')
+        
+        // Save user data to AsyncStorage
+        await saveUserData(response)
+        
+      } else {
+        setError(`Verification failed: ${response.message}`)
       }
-
-      // Step 2: Check health
-      setStep('Checking API health...')
-      const health = await apiService.healthCheck()
-      console.log('Health check:', health)
-
-      // Step 3: Verify identity
-      setStep('Verifying identity...')
-      const verificationResult = await apiService.verifyIDWithSelfie(
-        idCardUri as string,
-        selfieUri as string
-      )
-      
-      console.log('Verification result:', verificationResult)
-      setResult(verificationResult)
-      
-      // Store verification results for dashboard
-      await AsyncStorage.setItem('verificationResult', JSON.stringify({
-        ...verificationResult,
-        timestamp: new Date().toISOString(),
-        selfieUri,
-        idCardUri
-      }))
-      
-    } catch (err) {
-      console.error('Verification error:', err)
-      setError(err instanceof Error ? err.message : 'Verification failed')
+    } catch (error) {
+      console.error('Verification error:', error)
+      setError(`ID verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const saveUserData = async (verificationResult: VerificationResult) => {
+    try {
+      // Extract user information from the verification result
+      const extractedData = parseExtractedInfo(verificationResult.extracted_info)
+      
+      // Get name from extracted data
+      const name = extractedData.Name || extractedData.name || extractedData.full_name || extractedData.firstName || 'User'
+      
+      // Create user data object
+      const userData = {
+        name: name,
+        verificationResult: verificationResult,
+        isVerified: verificationResult.face_verified,
+        verificationDate: new Date().toISOString()
+      }
+      
+      console.log('Saving user data:', userData)
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('userData', JSON.stringify(userData))
+      
+      console.log('User data saved successfully')
+      
+    } catch (error) {
+      console.error('Error saving user data:', error)
     }
   }
 
@@ -176,11 +189,6 @@ const kycVerification = () => {
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Status:</Text>
                 <Text style={styles.detailValue}>{result.status}</Text>
-              </View>
-              
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Extraction Method:</Text>
-                <Text style={styles.detailValue}>{result.extraction_method}</Text>
               </View>
             </View>
 
@@ -392,7 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     padding: 15,
     borderRadius: 8,
-    borderLeft: 4,
+    borderLeftWidth: 4,
     borderLeftColor: '#2196F3',
   },
   rawText: {

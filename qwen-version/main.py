@@ -333,6 +333,7 @@ async def id_verify_base64(request: Dict[str, str]):
         - Any other important details found on the document.
         
         Your response must be only the JSON object. 
+        Not all dates are date of birth. 
         If you are not sure about any field don't include it. Don't assume or deduce things.
         """
         

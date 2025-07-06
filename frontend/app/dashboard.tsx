@@ -86,13 +86,78 @@ const Dashboard = () => {
 
   const getNameFromVerification = (verificationResult: VerificationResult | null) => {
     if (verificationResult?.extracted_info) {
+      console.log('Extracting name from:', verificationResult.extracted_info)
+      
       try {
-        const info = JSON.parse(verificationResult.extracted_info)
-        return info.Name || info.name || info.full_name || info.firstName || null
+        // Clean up markdown formatting if present
+        let cleanedInfo = verificationResult.extracted_info.trim()
+        
+        // Remove markdown code block markers
+        if (cleanedInfo.startsWith('```json')) {
+          cleanedInfo = cleanedInfo.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+        } else if (cleanedInfo.startsWith('```')) {
+          cleanedInfo = cleanedInfo.replace(/^```\s*/, '').replace(/\s*```$/, '')
+        }
+        
+        console.log('Cleaned info for parsing:', cleanedInfo)
+        
+        // Try parsing as JSON
+        const info = JSON.parse(cleanedInfo)
+        console.log('Parsed verification info:', info)
+        
+        // Try multiple possible name fields
+        const possibleNameFields = [
+          'Name', 'name', 'full_name', 'fullName', 'Full Name',
+          'firstName', 'first_name', 'First Name',
+          'given_name', 'givenName', 'Given Name',
+          'nom', 'nombre', 'nome', 'naam'
+        ]
+        
+        for (const field of possibleNameFields) {
+          if (info[field] && typeof info[field] === 'string') {
+            console.log('Found name in field:', field, '=', info[field])
+            return info[field].trim()
+          }
+        }
+        
+        // If no name field found, check if it's an object with nested properties
+        for (const key in info) {
+          if (typeof info[key] === 'object' && info[key] !== null) {
+            for (const field of possibleNameFields) {
+              if (info[key][field]) {
+                console.log('Found nested name:', info[key][field])
+                return info[key][field].trim()
+              }
+            }
+          }
+        }
+        
       } catch (e) {
-        return null
+        console.log('JSON parse failed, trying text extraction:', e)
+        
+        // If JSON parsing fails, try regex patterns on raw text
+        const text = verificationResult.extracted_info
+        const namePatterns = [
+          /Name[:\s]+([A-Za-z\s]+?)(?:\n|$|[,;])/i,
+          /Full Name[:\s]+([A-Za-z\s]+?)(?:\n|$|[,;])/i,
+          /First Name[:\s]+([A-Za-z\s]+?)(?:\n|$|[,;])/i,
+          /Given Name[:\s]+([A-Za-z\s]+?)(?:\n|$|[,;])/i,
+          /Nom[:\s]+([A-Za-z\s]+?)(?:\n|$|[,;])/i,
+          /Nombre[:\s]+([A-Za-z\s]+?)(?:\n|$|[,;])/i,
+        ]
+        
+        for (const pattern of namePatterns) {
+          const match = text.match(pattern)
+          if (match && match[1] && match[1].trim().length > 1) {
+            const extractedName = match[1].trim()
+            console.log('Extracted name from text pattern:', extractedName)
+            return extractedName
+          }
+        }
       }
     }
+    
+    console.log('No name found, returning null')
     return null
   }
 
@@ -198,17 +263,13 @@ const Dashboard = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top User Greeting Card */}
-      <View style={styles.greetingCard}>
-        <Image
-          source={{ uri: 'https://randomuser.me/api/portraits/men/44.jpg' }}
-          style={styles.avatar}
-        />
-        <View>
+      {/* Top User Greeting Card - Updated without avatar */}
+      <View style={styles.greetingCardCentered}>
+        <View style={styles.greetingContent}>
           <Text style={styles.goodMorning}>Good Morning</Text>
           <Text style={styles.userName}>Hi, {userData.name}</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/profile')} style={{ marginLeft: 'auto' }}>
+        <TouchableOpacity onPress={() => router.push('/profile')}>
             <Ionicons name="menu" size={24} color="#888" />
         </TouchableOpacity>
       </View>
@@ -416,18 +477,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  greetingCard: {
+  greetingCardCentered: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     backgroundColor: '#fff',
     marginBottom: 20,
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
+  greetingContent: {
+    flex: 1,
   },
   goodMorning: {
     fontSize: 14,
