@@ -41,64 +41,6 @@ const KYC = () => {
                         </View>
                     </View>
 
-                    {/* Verification Steps Info */}
-                    <View style={styles.stepsContainer}>
-                        <Text style={styles.stepsTitle}>Verification Process</Text>
-                        <Text style={styles.stepsDescription}>
-                            We'll guide you through a quick 2-step process to verify your identity
-                        </Text>
-                        
-                        {/* Step 1: Selfie */}
-                        <View style={styles.stepInfo}>
-                            <View style={styles.stepIconContainer}>
-                                <View style={[styles.stepIcon, { backgroundColor: 'rgba(102, 126, 234, 0.1)' }]}>
-                                    <Ionicons name="camera" size={24} color="#667eea" />
-                                </View>
-                            </View>
-                            <View style={styles.stepContent}>
-                                <Text style={styles.stepTitle}>Step 1: Take a Selfie</Text>
-                                <Text style={styles.stepDescription}>
-                                    Take a clear photo of yourself for facial recognition
-                                </Text>
-                                <View style={styles.stepFeatures}>
-                                    <View style={styles.featureItem}>
-                                        <Ionicons name="people" size={16} color="#667eea" />
-                                        <Text style={styles.featureText}>Face detection</Text>
-                                    </View>
-                                    <View style={styles.featureItem}>
-                                        <Ionicons name="shield-checkmark" size={16} color="#667eea" />
-                                        <Text style={styles.featureText}>Secure processing</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Step 2: ID */}
-                        <View style={styles.stepInfo}>
-                            <View style={styles.stepIconContainer}>
-                                <View style={[styles.stepIcon, { backgroundColor: 'rgba(102, 126, 234, 0.1)' }]}>
-                                    <Ionicons name="card" size={24} color="#667eea" />
-                                </View>
-                            </View>
-                            <View style={styles.stepContent}>
-                                <Text style={styles.stepTitle}>Step 2: Photo ID Verification</Text>
-                                <Text style={styles.stepDescription}>
-                                    Take a photo of your government-issued ID document
-                                </Text>
-                                <View style={styles.stepFeatures}>
-                                    <View style={styles.featureItem}>
-                                        <Ionicons name="document-text" size={16} color="#667eea" />
-                                        <Text style={styles.featureText}>Document scan</Text>
-                                    </View>
-                                    <View style={styles.featureItem}>
-                                        <Ionicons name="eye-off" size={16} color="#667eea" />
-                                        <Text style={styles.featureText}>Privacy protected</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-
                     {/* Start Verification Button */}
                     <View style={styles.actionContainer}>
                         <TouchableOpacity 
